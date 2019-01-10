@@ -31,6 +31,7 @@ app.get('/', function (req, res) {
 app.get('/getdrains', function (req, res) {
     console.log('getDrains');
     var records = [];
+    
     // conn.query("SELECT Id, account.name FROM asset WHERE account.name ='Sabre Asset Holder' LIMIT 5", function(err, result) {
     //   console.log('getDrainsResult');
     //   if (err) { return console.error(err); }
