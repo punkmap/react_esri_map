@@ -39,6 +39,7 @@ app.get('/getdrains', function (req, res) {
     //       console.log("records : " + JSON.stringify(result.records));
     //   }
     // });
+
 });
 //app.get('/facilitybyid/:id', function (req, res) {
 app.post('/facilitybyid/:id', function (req, res) {
