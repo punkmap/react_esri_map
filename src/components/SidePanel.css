@@ -1,10 +1,11 @@
 
 .sideNav {
-    height: calc(100% - 200px);
+    /* height: calc(100% - 200px); */
+    height: 20em;
     overflow-y: auto;
     position: absolute;
-    top: 20px;
-    right: 20px;
+    top: 40%;
+    right: 85%;
     background-color: whitesmoke;
     min-width: 280px;
     z-index: 100;

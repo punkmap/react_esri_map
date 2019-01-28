@@ -7,6 +7,15 @@ import getMuiTheme from 'material-ui/styles/getMuiTheme';
 import IconButton from 'material-ui/IconButton';
 import FloatingActionButton from 'material-ui/FloatingActionButton';
 import NavigationClose from 'material-ui/svg-icons/navigation/close';
+
+import Menu from '@material-ui/core/Menu';
+import MenuItem from '@material-ui/core/MenuItem';
+import MenuIcon from '@material-ui/icons/Menu';
+import DeleteIcon from '@material-ui/icons/DeleteForever';
+import NavigationIcon from '@material-ui/icons/DoneAll';
+import green from '@material-ui/core/colors/green';
+import red from '@material-ui/core/colors/red';
+import Fab from '@material-ui/core/Fab';
 import AppBar from 'material-ui/AppBar';
 import Fade from '@material-ui/core/Fade';
 import Button from '@material-ui/core/Button';
@@ -18,6 +27,8 @@ import TextField from '@material-ui/core/TextField'
 import FormLabel from '@material-ui/core/FormLabel'
 import Icon from '@material-ui/core/Icon';
 import './SidePanel.css';
+
+
 
 
 function handleClick(event) {
@@ -44,6 +55,23 @@ const styles = theme => ({
     , typeTitle: {
         paddingTop: 5
     }
+    , addButton: {
+        color: theme.palette.getContrastText(green[500]),
+        backgroundColor: green[500],
+        '&:hover': {
+            backgroundColor: green[700],
+        },
+    }
+    , deleteButton: {
+        color: theme.palette.getContrastText(red[500]),
+        backgroundColor: red[500],
+        '&:hover': {
+            backgroundColor: red[700],
+        },
+    }
+    , extendedIcon: {
+        marginRight: theme.spacing.unit*2,
+    }
   });
 
 class SidePanel extends Component {
@@ -51,12 +79,14 @@ class SidePanel extends Component {
         super(props);
         
         this.state = {
-            hideSidePanel: false
-            , project: ''
+            project: ''
             , phase: ''
-            , pid:''
+            , showAddButton: false
+            , anchorEl: null
+            , editAction: 'add'
         };
-        this.toggleVis = this.toggleVis.bind(this);
+        this.menuClick = this.menuClick.bind(this);
+        this.handleClose = this.handleClose.bind(this);
     }
     update = (e) => {
         console.log(e.target.value);
@@ -64,15 +94,30 @@ class SidePanel extends Component {
         this.setState({fieldVal: e.target.value});
     };
     handleChange = name => event => {
-        this.state.pid = 'testit';
+        this.props.projectPhaseCallback(name, event.target.value)
         this.setState({
             [name]: event.target.value,
+        }, () => {
+            if(this.state.project && this.state.phase){
+                this.setState({showAddButton: true})
+            }
+            else{
+                this.setState({showAddButton: false})
+            }
         });
     };
-    toggleVis(event){
-        this.state.hideSidePanel ? this.setState({hideSidePanel:false}): this.setState({hideSidePanel:true});
+    menuClick = (e) =>{
+        this.setState({anchorEl : e.currentTarget})
     }
-
+    
+    handleClose = key => e => {
+        console.log('key: ' + key)
+        this.setState({editAction:key})
+        this.setState({anchorEl : null})
+    }
+    addSelectedProperties = () =>{
+        this.props.addSelectedProperties()
+    }
     render() {
         const { classes } = this.props;
         console.log('classes: ' + JSON.stringify(classes));
@@ -81,44 +126,77 @@ class SidePanel extends Component {
         <MuiThemeProvider muiTheme={getMuiTheme(darkBaseTheme)}>
             {/* <IconButton class='sideNavButton'><NavigationClose /></IconButton> */}
             <div>
-                <Fade in={this.state.hideSidePanel} timeout={1000}>
+                {/* <Fade in={this.state.hideSidePanel} timeout={1000}>
                     <div className='sideNavButton'>
                         <FloatingActionButton onClick={this.toggleVis} >
                             <Icon>build</Icon>
                         </FloatingActionButton>
                     </div>
-                </Fade>
-                <Fade in={!this.state.hideSidePanel} timeout={1000}>
+                </Fade> */}
+                <Fade in={!this.props.hideSidePanel} timeout={1000}>
                     <Paper className="sideNav"  >
-                        <AppBar className={classes.appBar} title="sidePanel" iconElementLeft={(<div />)}  iconElementRight={<IconButton onClick={this.toggleVis}><NavigationClose /></IconButton>}>
-                            
+                        <AppBar className={classes.appBar} title="Add Project" iconElementLeft={(
+                            <IconButton color="inherit" aria-label="Menu" 
+                                aria-owns={this.state.anchorEl ? 'simple-menu' : undefined}
+                                aria-haspopup="true" 
+                                onClick={this.menuClick}>
+                                <MenuIcon />
+                            </IconButton>)} 
+                        >
+                        <Menu id="simple-menu" anchorEl={this.state.anchorEl} open={Boolean(this.state.anchorEl)} onChange={this.handleClose}>
+                            <MenuItem onClick={this.handleClose('add')}>Add</MenuItem>
+                            <MenuItem onClick={this.handleClose('remove')}>Remove</MenuItem>
+                        </Menu>
                         </AppBar>
-                        <FormControl margin='normal'>
-                        <FormLabel/>
-                        <TextField
-                            id="tf_project"
-                            label="Project"
-                            className={classes.textField}
-                            value={this.state.project}
-                            onChange={this.handleChange('project')}
-                            margin="normal"
-                            variant="outlined"
-                        />
-                        <TextField
-                            id="tf_phase"
-                            label="Phase"
-                            className={classes.textField}
-                            value={this.state.phase}
-                            onChange={this.handleChange('phase')}
-                            margin="normal"
-                            variant="outlined"
-                        />
+                        {this.state.editAction==='add' ? (
+                            <FormControl margin='normal'>
+                            <FormLabel/>
+                                <TextField
+                                    id="tf_project"
+                                    label="Project"
+                                    className={classes.textField}
+                                    value={this.state.project}
+                                    onChange={this.handleChange('project')}
+                                    margin="normal"
+                                    variant="outlined"
+                                />
+                                <TextField
+                                    id="tf_phase"
+                                    label="Phase"
+                                    className={classes.textField}
+                                    value={this.state.phase}
+                                    onChange={this.handleChange('phase')}
+                                    margin="normal"
+                                    variant="outlined"
+                                />
+                                <Fade in={this.state.showAddButton} timeout={1000}>
+                                    <Fab variant="extended" 
+                                        color="primary" 
+                                        aria-label="Add" 
+                                        className={classes.addButton}
+                                        onClick={this.addSelectedProperties}>
+                                        <NavigationIcon className={classes.extendedIcon} />
+                                        <b>Add Selection</b>
+                                    </Fab>
+                                </Fade>
+                            </FormControl>
+                        ) : (
+                            <FormControl margin='normal'>
+                                
+                                    <Fab variant="extended" color="primary" aria-label="Add" className={classes.deleteButton}>
+                                        <DeleteIcon className={classes.extendedIcon} />
+                                        <b>Delete Selection</b>
+                                    </Fab>
+                            </FormControl>
+                        )}                
                         
+{/*                         
                         <Fade in={this.props.address!=null} timeout={1000}>
                             <Paper className={classes.paper} elevation={1} >
                                 <Grid container spacing={8}>
                                     <Grid item xs={12}>
                                         <div className={classes.type}>
+                                            <h3>Property Info</h3>
                                             <Typography component="h2" variant="subtitle2" align='justify' gutterBottom>
                                             Address
                                             </Typography>
@@ -141,49 +219,12 @@ class SidePanel extends Component {
                                                 <a href={this.props.deedLink}>Deed</a>
                                             </Button>
                                             </Typography>
-                                            {/* <Typography variant="h3" gutterBottom>
-                                                h3. Heading
-                                            </Typography>
-                                            <Typography variant="h4" gutterBottom>
-                                                h4. Heading
-                                            </Typography>
-                                            <Typography variant="h5" gutterBottom>
-                                                h5. Heading
-                                            </Typography>
-                                            <Typography variant="h6" gutterBottom>
-                                                h6. Heading
-                                            </Typography>
-                                            <Typography variant="subtitle1" gutterBottom>
-                                                subtitle1. Lorem ipsum dolor sit amet, consectetur adipisicing elit. Quos blanditiis tenetur
-                                            </Typography>
-                                            <Typography variant="subtitle2" gutterBottom>
-                                                subtitle2. Lorem ipsum dolor sit amet, consectetur adipisicing elit. Quos blanditiis tenetur
-                                            </Typography>
-                                            <Typography variant="body1" gutterBottom>
-                                                body1. Lorem ipsum dolor sit amet, consectetur adipisicing elit. Quos blanditiis tenetur
-                                                unde suscipit, quam beatae rerum inventore consectetur, neque doloribus, cupiditate numquam
-                                                dignissimos laborum fugiat deleniti? Eum quasi quidem quibusdam.
-                                            </Typography>
-                                            <Typography variant="body2" gutterBottom>
-                                                body2. Lorem ipsum dolor sit amet, consectetur adipisicing elit. Quos blanditiis tenetur
-                                                unde suscipit, quam beatae rerum inventore consectetur, neque doloribus, cupiditate numquam
-                                                dignissimos laborum fugiat deleniti? Eum quasi quidem quibusdam.
-                                            </Typography>
-                                            <Typography variant="button" gutterBottom>
-                                                button text
-                                            </Typography>
-                                            <Typography variant="caption" gutterBottom>
-                                                caption text
-                                            </Typography>
-                                            <Typography variant="overline" gutterBottom>
-                                                overline text
-                                            </Typography> */}
                                         </div>
                                     </Grid>
                                 </Grid>        
                             </Paper>     
-                        </Fade>
-                        </FormControl>
+                        </Fade> */}
+                        
                     </Paper>
                     
                 </Fade>

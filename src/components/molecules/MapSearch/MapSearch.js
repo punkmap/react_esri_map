@@ -12,9 +12,9 @@ class MapSearch extends Component {
         searchWidget: null
     }
   }
-  componentDidUpdate() {
-      console.log('MapSearchDidMount')
-  }
+  // componentDidUpdate() {
+  //     console.log('MapSearchDidMount')
+  // }
   componentDidUpdate() {
       console.log('MapSearchDidUpdate')
     const self = this
