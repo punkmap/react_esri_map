@@ -1,18 +1,11 @@
 import React from 'react';
 import ReactDOM from 'react-dom'
 import EsriLoaderReact from 'esri-loader-react'
-import SidePanel from './SidePanel'
-import './ReactMap.css'
 import { loadModules } from 'esri-loader'
+import axios from 'axios'
 import MapOverlayPanel from './molecules/MapOverlayPanel/MapOverlayPanel'
 import PopUp from './molecules/PopUp/PopUp'
-import axios from 'axios'
-
-
-import remove from '../assets/remove.png'
-
-// import Fab from '@material-ui/core/Fab';
-// import Icon from '@material-ui/core/Icon';
+import './ReactMap.css'
 
 class ReactMap extends React.PureComponent {
   constructor(props){
@@ -22,17 +15,14 @@ class ReactMap extends React.PureComponent {
       , mapView: null
       , parcelsFL: null
       , projectsFL: null
-      , projectsAddPIN10s: null
-      , projectNumber: null
-      , phase:null
       , parcelAddGL : null
-      , address: null
-      , PIN: null
-      , realLink: null
-      , deedLink: null
+      , projectsAddPIN10s: null
+      , project: null
+      , phase:null
       , hideSidePanel: true
+      , parcelData: null
+      , realEstateData: null
     }
-    console.log('this.state: ' + JSON.stringify(this.state));
     this.mapClick = this.mapClick.bind(this);
     this.loadMap = this.loadMap.bind(this);
     this.loadExistingProjectsToMap = this.loadExistingProjectsToMap.bind(this);
@@ -57,36 +47,19 @@ class ReactMap extends React.PureComponent {
     let fl = new FeatureLayer({
         url: flURL 
         , outFields: ["OBJECTID","PIN","PIN10","Realid","Owner","Owner2","OwnerAdd1","OwnerAdd2","OwnerAdd3","Location","CalcAcreage","DeedAcres","StreetNumber","StreetMisc","StreetPrefix","StreetName","StreetType","StreetSuffix","LandClass","Lclass","TotalStructures","TotalUnits","PropertyDesc","LotNum","BldgValue","LandValue","LandSaleValue","LandSaleDate","TotalSaleValue","TotalSaleDate","DeedBook","DeedPage","WC_City","Cary_City","WC_Etj","Topography","Township","APAOwnership","APAActivity","APAFunction","APAStructure","APASite","WC_Zoning","BillingClass","APAOwnershipDesc","APAActivityDesc","APAFunctionDesc","APAStructureDesc","APASiteDesc","County","TotalBldgSqFt","Typeanduse","Typedecode","PhyCity","PhyZip","Utilities","OwnerWholeName"]
-        // , popupTemplate: {
-        //     title: "Property Information: {PIN10}",
-        //     actions: [{
-        //       id: "remve-parcel",
-        //       image: remove,
-        //       title: "Remove Parcel"
-        //     }],
-        //     // content: [{
-        //     //   type: "fields",
-        //     //   fieldInfos: [{
-        //     //     fieldName: "PIN10"
-        //     //   }]
-               
-        //     // }]
-        //     highlightEnabled: false,
-        //     content: self.getPopupContent
-        // }
+        , popupTemplate: null
     });
     fl.minScale = 2257;
     fl.when(function(featureLayer){
       console.log('when fl');
       featureLayer.id = 'parcels';
-      console.log('e.url: ' + featureLayer.url);
       self.setState({parcelsFL: featureLayer});
     });
     fl.renderer = {
       type: "simple"  // autocasts as new SimpleRenderer()
       , symbol: {
         type: "simple-fill",  // autocasts as new SimpleFillSymbol()
-        color: [ 255, 255, 0, 0.2 ],
+        color: [ 255, 255, 0, 0.1 ],
         outline: {  // autocasts as new SimpleLineSymbol()
           width: 1,
           color: "white"
@@ -98,16 +71,14 @@ class ReactMap extends React.PureComponent {
       , id: 'parcelAddGL'
     })
     parcelAddGL.watch('graphics.length', function(newValue, oldValue, property, object) {
-      console.log('self.state.hideSidePanel: ' + self.state.hideSidePanel)
+      console.log('GRAPHICS Layer added')
       newValue!==0?self.setState({hideSidePanel: false}):self.setState({hideSidePanel: true})
-      console.log('self.state.hideSidePanel: ' + self.state.hideSidePanel)
     });
     self.setState({parcelAddGL:parcelAddGL})
     
     let map = new Map({basemap: 'satellite'})
     
     map.addMany([fl, parcelAddGL])
-    console.log('map.layers: ' + map.layers);
     self.loadExistingProjectsToMap(map)
     let mv = new MapView({
       container: containerNode
@@ -115,60 +86,54 @@ class ReactMap extends React.PureComponent {
       , zoom: 18
       , map: map
     }).when((function(mapView){
-        mapView.on('click', self.mapClick)
         self.setState({mapView:mapView})
+        mapView.on('click', self.mapClick)
         mapView.popup.highlightEnabled = false;
-        // mapView.popup.watch('visible', function(e){
-        //   console.log(JSON.stringify(e))
-        //   console.log('look at me fool')
-        //   self.setReactPopupContent()
-        // })
-        // var popup = mapView.popup;
-        // popup.viewModel.on("trigger-action", function(event) {
-        //   if (event.action.id === "remove-parcel") {
-        //     var attributes = popup.viewModel.selectedFeature.attributes;
-        //   }
-        // });
+        mapView.popup.actions = {}
+        mapView.popup.watch('visible', function(e){
+          if(e){self.setReactPopupContent()}
+        })
     }));
+  }
+  refreshProjectFL = (callback) =>{
+    const self = this;
+    axios({
+      method: 'post'
+      , url: 'http://localhost:3001/realestate/getprojectparcels'
+      
+    })
+    .then(function(response){
+      const array = response.data
+      self.setState({projectsAddPIN10s:array});
+      const list = array.map(s => `'${s}'`).join(', ');
+      self.state.projectsFL.definitionExpression = `PIN10 in (${list})`
+      callback({'status':'success'})
+    })
+    .catch(function (error) {
+      callback({'status':'error'})
+    });
   }
   loadExistingProjectsToMap = (map) => {
     console.log('loadProjectsToMap');
     const self = this
     loadModules(['esri/layers/FeatureLayer']).then(([FeatureLayer]) => {
-      axios({
-        method: 'post'
-        , url: 'http://localhost:3001/getprojectparcels'
-        
-      })
-      .then(function(response){
-        console.log('response.data: ' + JSON.stringify(response.data))
-        console.log('response.data.length: ' + response.data.length)
-        const array = response.data
-        self.setState({projectsAddPIN10s:array});
-        const list = array.map(s => `'${s}'`).join(', ');
-        console.log(`select * from tableName where id in (${list})`);
         const flURL = 'https://maps.townofcary.org/arcgis/rest/services/Property/Property/MapServer/0'
-        console.log('loadExistingProjectsToMap1')
         let fl = new FeatureLayer({
           url: flURL 
           , outFields: ["*"]
           , popupEnabled:false
         });
-        console.log('loadExistingProjectsToMap2')
         fl.minScale = 2257;
-        console.log('loadExistingProjectsToMap3')
         fl.when(function(featureLayer){
-          console.log('when projects fl');
           featureLayer.id = 'projects';
-          console.log('projects e.url: ' + featureLayer.url);
           self.setState({projectsFL: featureLayer});
           map.reorder(self.state.parcelAddGL, 2)
           map.layers.forEach(function(layer){
             console.log('layer.id: ' + layer.id)
           })
+          
+          self.refreshProjectFL(function(status){})
         });
-        console.log('loadExistingProjectsToMap4')
-        fl.definitionExpression = `PIN10 in (${list})`
         fl.renderer = {
           type: "simple"  // autocasts as new SimpleRenderer()
           , symbol: {
@@ -181,79 +146,74 @@ class ReactMap extends React.PureComponent {
           }
         }
         map.add(fl);
-        
-
-      })
-      .catch(function (error) {
-        console.log('error: ' + error)
-      });
     })
   }
-  getPopupContent = (target) => {
+  setReactPopupContent = () => {
     const self = this
-    const graphic = target.graphic;
-    if (self.graphicInGraphicsLayer(graphic, self.state.parcelAddGL, 'PIN')&&self.state.parcelAddGL.graphics.length > 0){
-      self.removeGraphicById(graphic, self.state.parcelAddGL, 'PIN')
-    }
-    else{
-      
-      const attributes = graphic.attributes;
-      self.addGraphicToProjectSet(graphic)
-      const data = {firstname:'Fred', lastname:'flintstone'}
-      return axios.post('http://localhost:3001/hitnodeapp/' + JSON.stringify(data))
-      .then(function(response){
-        console.log('response.data: ' + response.data);
-        //http://services.wakegov.com/realestate/Account.asp?id=0132521","DeedLink":"http://services.wakegov.com/booksweb/GenExtSearch.aspx?BookPage=004829-00200"
-        return '<b>I am from Node.js: '+response.data.info+'</b>'+
-          "<ul>" +
-          "<li> PIN10 " + attributes.PIN10 +
-          "</li>" +
-          "<li> Realid: " + attributes.Realid +
-          "</li>" +
-          "<li> Site Address: " + attributes.Location +
-          "</li>" +
-          "</ul>";
-      })
-      .catch(function (error) {
-        console.log('error: ' + error)
-      });
-    }
     
+    let puNode = document.createElement("div");
+    const popupContent = document.getElementsByClassName('.esri-popup__content');
+    self.state.mapView.popup.content = puNode
+    
+    ReactDOM.render(
+      <PopUp parcelData={self.state.parcelData} realEstateData={self.state.realEstateData}/>,
+      puNode
+    );
+    //self.state.mapView.popup.open();
   }
   addFeature = (e) => {
     console.log('addFeature')
   }
   mapClick = (e) => {
-    console.log('quit clicking me mapPoint: ' + JSON.stringify(e.mapPoint));
+    //console.log('quit clicking me mapPoint: ' + JSON.stringify(e.mapPoint));
       const self = this;
       loadModules(['esri/tasks/QueryTask','esri/tasks/support/Query'])
       .then(([QueryTask,Query]) => 
       {
         let parcels = this.state.parcelsFL;
         let URL = parcels.url+'/'+parcels.layerId;  
-        console.log('URL: '+ URL);
+        //console.log('URL: '+ URL);
         var qTask = new QueryTask({
             url: URL
           });  
           var params = new Query({
                 returnGeometry: true
-                , outFields: ['*']
+                , outFields: ['PIN','PIN10','RealId','Owner','OwnerWholeName','Owner2','OwnerAdd1','OwnerAdd2','OwnerAdd3','DeedBook','DeedPage','Location','StreetNumber','StreetPrefix','StreetName','StreetType']
                 , geometry: e.mapPoint
                 , spatialRelationship: 'intersects'
           });
           qTask.execute(params)
           .then(function(response){
-              console.log('response: ' + JSON.stringify(response.features[0].attributes));
-              self.setState({address: response.features[0].attributes.Location});
-              self.setState({PIN: response.features[0].attributes.PIN});
-              self.setState({realLink: response.features[0].attributes.RealLink});
-              self.setState({deedLink: response.features[0].attributes.DeedLink});
-              self.state.mapView.popup.open({
-                title: 'this is my popup'
-                , location : e.mapPoint
-                , content: ''
-              })
-              self.setReactPopupContent()
+              if (response.features.length>0){
+                console.log('response.features[0]: ' + JSON.stringify(response.features[0]));
+                self.addGraphicToProjectSet(response.features[0])
+                const PIN10 = response.features[0].attributes.PIN10 
+                axios.post('http://localhost:3001/realestate/getprojectattributes/'+JSON.stringify(PIN10)).then(function(response){
+                  const resData = response.data;
+                  if(response.status===200){
+                    console.log('success');
+                    self.setState({realEstateData: resData})
+                    // self.state.mapView.popup.open({
+                    //   title: PIN10
+                    //   , location : e.mapPoint
+                    // })
+                  }
+                  else{
+                    
+                  }
+                })
+                .catch(function (error) {
+                  console.log('error: ' + error)
+                });
+              }
+              else{
+                self.state.parcelAddGL.removeAll()
+                self.setState({realEstateData: null})
+              }
+              let parcelData = JSON.parse(JSON.stringify(response.features[0].attributes))
+              self.deleteObjectKeys(parcelData,['Location','StreetNumber','StreetPrefix','StreetName','StreetType'])
+              console.log('set parcelData state')
+              self.setState({parcelData: parcelData})
           })
           .catch(function(error){
               console.log('error: ' + JSON.stringify(error));
@@ -263,34 +223,18 @@ class ReactMap extends React.PureComponent {
         // handle any errors
         console.error(err);
       });
+      
   }
-  setReactPopupContent = () => {
-    const self = this
-    
-    let puNode = document.createElement("div");
-    
-    self.state.mapView.popup.content = puNode
-    
-    
-    // function Button(props) {
-    //   return <button onClick={props.onClick}>Say Hello</button>;
-    // }
-    
-    function HelloButton() {
-      // function handleClick() {
-      //   alert('Hello!');
-      // }
-      return <p>ReactPopup</p>;
-    }
-    
-    ReactDOM.render(
-      <PopUp />,
-      puNode
-    );
+  deleteObjectKeys = (object,keys) => {
+    keys.forEach(function(key){
+      delete object[key]
+    })
+    console.log('return delete object keys')
+    return
   }
   addGraphicToProjectSet = (graphic) =>{
     const self = this
-    loadModules(['esri/Graphic']).then(([Graphic]) => {
+    //loadModules(['esri/Graphic']).then(([Graphic]) => {
       var fillSymbol = {
         type: "simple-fill", // autocasts as new SimpleFillSymbol()
         color: [0, 255, 255, 0.1],
@@ -300,8 +244,6 @@ class ReactMap extends React.PureComponent {
         }
       }
       graphic.symbol = fillSymbol
-      // console.log('addGraphic')
-      // console.log('self.state.ctrlKey: ' + self.state.ctrlKey)
       if(!self.state.ctrlKey){
         self.state.parcelAddGL.removeAll();
       }
@@ -309,14 +251,6 @@ class ReactMap extends React.PureComponent {
       if(!self.graphicInGraphicsLayer(graphic, self.state.parcelAddGL, 'PIN')){
         self.state.parcelAddGL.add(graphic)
       }
-      //if (self.graphicInGraphicsLayer(graphic, self.state.parcelAddGL, 'PIN')&&self.state.parcelAddGL.length > 0){
-      
-      console.log('self.state.parcelAddGL.graphics.length: ' + self.state.parcelAddGL.graphics.length);
-      // console.log('addGraphic')  
-    });
-  }
-  test = () =>{
-    console.log('test')
   }
   graphicInGraphicsLayer = (G, GL, idField) =>{
     let inGL = false
@@ -337,44 +271,73 @@ class ReactMap extends React.PureComponent {
     
     GL.removeMany(removeGraphics)
   }
+  getSelectedProperties = () => {
+    const self = this
+    let parceldata = []
+    let array = self.state.projectsAddPIN10s
+    console.log('getSelectedProperties array: '+array)
+    this.state.parcelAddGL.graphics.forEach(function(g){
+      let attr = g.attributes
+      console.log('attr: ' + JSON.stringify(attr))
+      if(array.indexOf(attr.PIN10)===-1){console.log('this shit is true')}
+      if(array.indexOf(attr.PIN10)===-1){
+        array.push(attr.PIN10)
+      } 
+      delete attr.RealLink
+      delete attr.DeedLink
+      console.log('self.state.project: ' + self.state.project)
+      attr.Project = self.state.project
+      attr.Phase = self.state.phase
+      parceldata.push(attr)
+    }) 
+    return parceldata
+  }
   addSelectedProperties = () => {
     const self = this;  
-    console.log('addSelectedProperties')
-      const parceldata = []
-      let array = self.state.projectsAddPIN10s
-      this.state.parcelAddGL.graphics.forEach(function(g){
-        let attr = g.attributes
-        if(array.indexOf(attr.PIN10)===-1){console.log('this shit is true')}
-        if(array.indexOf(attr.PIN10)===-1){
-          array.push(attr.PIN10)
-        } 
-        delete attr.RealLink
-        delete attr.DeedLink
-        attr.ProjectNumber = self.state.projectNumber
-        attr.Phase = self.state.phase
-        parceldata.push(attr)
-      }) 
-      self.state.projectsFL.refresh()
-      axios.post('http://localhost:3001/addparcels/'+JSON.stringify(parceldata)).then(function(response){
-        console.log('parcelesAdded response: ' + JSON.stringify(response.data));
-        const resData = response.data;
-        console.log(resData)
-        if(resData.status==='success'){
-          const list = array.map(s => `'${s}'`).join(', ');
-          self.state.projectsFL.definitionExpression = `PIN10 in (${list})`
-        }
-        else{
+    let array = self.state.projectsAddPIN10s
+    const parceldata = self.getSelectedProperties()
+    axios.post('http://localhost:3001/realestate/addparcels/'+JSON.stringify(parceldata)).then(function(response){
+      const resData = response.data;
+      if(resData.status==='success'){
+        self.refreshProjectFL(function(status){})
+      }
+      else if (resData.status==='warning'){
+          alert(resData.message)    
+      }
 
-        }
-
-      })
-      .catch(function (error) {
-        console.log('error: ' + error)
-      });
+    })
+    .catch(function (error) {
+      console.log('error: ' + error)
+    });
   }
-  projectPhaseCallback = (type, value) =>{
-    console.log('type: ' + type + " & value: " +value)
-    this.setState({type:value})
+  deleteSelectedProperties = () => {
+    const self = this;  
+    console.log('deleteSelectedProperties')
+    const parceldata = self.getSelectedProperties()
+    axios.post('http://localhost:3001/realestate/deleteparcels/'+JSON.stringify(parceldata)).then(function(response){
+      console.log('parcelesAdded response: ' + JSON.stringify(response.data));
+      const resData = response.data;
+      console.log(resData)
+      if(resData.status==='success'){
+        self.refreshProjectFL(function(status){})        
+      }
+      else if (resData.status==='warning'){
+          alert(resData.message)    
+      }
+
+    })
+    .catch(function (error) {
+      console.log('error: ' + error)
+    });
+  }
+  setProjectCallback = (value) =>{
+    const self = this
+    this.setState({project:value})
+    console.log('setProjectCallback self.state.project: ' + self.state.project)
+  }
+  setPhaseCallback = (value) =>{
+    this.setState({phase:value})
+    console.log(this.state.phase)
   }
   render() {
 
@@ -394,12 +357,24 @@ class ReactMap extends React.PureComponent {
         <MapOverlayPanel 
           view={this.state.mapView} 
           resultPinDragable={true}
-        />
-        <SidePanel ref="sidePanel" 
-          hideSidePanel={this.state.hideSidePanel} 
+          //hideSidePanel={false} 
+          hideSidePanel_MapOverlay={this.state.hideSidePanel} 
           addSelectedProperties = {this.addSelectedProperties}
-          projectPhaseCallback = {this.projectPhaseCallback}
+          deleteSelectedProperties = {this.deleteSelectedProperties}
+          projectCallback = {this.setProjectCallback}
+          phaseCallback = {this.setPhaseCallback}
+          realEstateData = {this.state.realEstateData}
+          parcelData = {this.state.parcelData}
         />
+        
+        {/* <SidePanel ref="sidePanel" 
+          hideSidePanel={false} 
+          //hideSidePanel={this.state.hideSidePanel} 
+          addSelectedProperties = {this.addSelectedProperties}
+          deleteSelectedProperties = {this.deleteSelectedProperties}
+          projectCallback = {this.setProjectCallback}
+          phaseCallback = {this.setPhaseCallback}
+        /> */}
         {/* <SidePanel ref="sidePanel" 
           address={this.state.address} 
           PIN={this.state.PIN} 

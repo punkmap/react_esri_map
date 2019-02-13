@@ -1,12 +1,13 @@
 import React, { Component } from 'react';
+import ReactDOM from 'react-dom'
 import PropTypes from 'prop-types';
 import withStyles from '@material-ui/core/styles/withStyles';
 import darkBaseTheme from 'material-ui/styles/baseThemes/darkBaseTheme';
 import MuiThemeProvider from 'material-ui/styles/MuiThemeProvider';
 import getMuiTheme from 'material-ui/styles/getMuiTheme';
 import IconButton from 'material-ui/IconButton';
-import FloatingActionButton from 'material-ui/FloatingActionButton';
-import NavigationClose from 'material-ui/svg-icons/navigation/close';
+// import FloatingActionButton from 'material-ui/FloatingActionButton';
+// import NavigationClose from 'material-ui/svg-icons/navigation/close';
 
 import Menu from '@material-ui/core/Menu';
 import MenuItem from '@material-ui/core/MenuItem';
@@ -18,14 +19,14 @@ import red from '@material-ui/core/colors/red';
 import Fab from '@material-ui/core/Fab';
 import AppBar from 'material-ui/AppBar';
 import Fade from '@material-ui/core/Fade';
-import Button from '@material-ui/core/Button';
-import Grid from '@material-ui/core/Grid';
+// import Button from '@material-ui/core/Button';
+// import Grid from '@material-ui/core/Grid';
 import Paper from '@material-ui/core/Paper';
-import Typography from '@material-ui/core/Typography';
+// import Typography from '@material-ui/core/Typography';
 import FormControl from '@material-ui/core/FormControl';
 import TextField from '@material-ui/core/TextField'
-import FormLabel from '@material-ui/core/FormLabel'
-import Icon from '@material-ui/core/Icon';
+// import FormLabel from '@material-ui/core/FormLabel'
+// import Icon from '@material-ui/core/Icon';
 import './SidePanel.css';
 
 
@@ -34,14 +35,25 @@ import './SidePanel.css';
 function handleClick(event) {
     console.log('shut the door')
 }
-
+function getPointerEvents(){
+    return true
+}
 const styles = theme => ({
+    // root:{
+    //     pointerEvents: this.getPointerEvents
+    // },
     appBar: {
       position: 'relative',
     }
     , textField: {
         marginLeft: theme.spacing.unit,
         marginRight: theme.spacing.unit,
+    }
+    , pointerEventsActive: {
+        pointerEvents: 'auto'
+    }
+    , pointerEventsInactive: {
+        pointerEvents: 'none'
     }
     , paper: {
         paddingTop: theme.spacing.unit * 2,
@@ -72,21 +84,33 @@ const styles = theme => ({
     , extendedIcon: {
         marginRight: theme.spacing.unit*2,
     }
+
   });
 
 class SidePanel extends Component {
     constructor(props){
         super(props);
         
+        const { classes } = this.props;
         this.state = {
             project: ''
             , phase: ''
-            , showAddButton: false
+            , project_delete: ''
+            , phase_delete: ''
+            , disableAddButton: true
+            , showDeleteButton: false
             , anchorEl: null
             , editAction: 'add'
+            , titleBarTitle: 'Add Project'
+            , pointerEvents: 'auto'
+            , sidePanelClasses: ['sidePanel', 'pointerEventsInactive']
+            , textFieldClasses: [classes.textField, classes.pointerEventsInactive]
+            //, editAction: 'delete'
         };
         this.menuClick = this.menuClick.bind(this);
         this.handleClose = this.handleClose.bind(this);
+
+        this.sideNav = React.createRef();
     }
     update = (e) => {
         console.log(e.target.value);
@@ -94,15 +118,22 @@ class SidePanel extends Component {
         this.setState({fieldVal: e.target.value});
     };
     handleChange = name => event => {
-        this.props.projectPhaseCallback(name, event.target.value)
+        name === 'project' || name==='project_delete' ? this.props.projectCallback(event.target.value) : this.props.phaseCallback(event.target.value)
+        
         this.setState({
             [name]: event.target.value,
         }, () => {
             if(this.state.project && this.state.phase){
-                this.setState({showAddButton: true})
+                this.setState({disableAddButton: false})
             }
             else{
-                this.setState({showAddButton: false})
+                this.setState({disableAddButton: true})
+            }
+            if(this.state.project_delete && this.state.phase_delete){
+                this.setState({disableDeleteButton: false})
+            }
+            else{
+                this.setState({disableDeleteButton: true})
             }
         });
     };
@@ -111,21 +142,59 @@ class SidePanel extends Component {
     }
     
     handleClose = key => e => {
-        console.log('key: ' + key)
+        console.log('key: ' + key) 
+        key === 'add'? this.setState({titleBarTitle: 'Add Project'}) : this.setState({titleBarTitle: 'Remove Project'})
         this.setState({editAction:key})
         this.setState({anchorEl : null})
     }
-    addSelectedProperties = () =>{
-        this.props.addSelectedProperties()
+    getPointerEvents = () => {
+        return true
     }
+    componentDidMount = () => {
+        this.sideNav = React.createRef();
+    }
+    componentDidUpdate() {
+        console.log('SIDEPANEL.componentDidUpdate')
+        console.log('this.props.hideSidePanel: ' + this.props.hideSidePanel);
+        const { classes } = this.props;
+        //console.log('this.state.textFieldClasses: ' + JSON.stringify(this.state.textFieldClasses))
+        console.log('this.state.sidePanelClasses: ' + this.state.sidePanelClasses);
+        if(!this.props.hideSidePanel && this.state.sidePanelClasses !== ['sidePanel', 'pointerEventsActive']){
+            //this.setState({sidePanelClasses : ['sidePanel', 'sidePanelInactive']})        
+            this.state.sidePanelClasses.splice(-1, 1)
+            console.log('this.state.sidePanelClasses makeInactive: ' + this.state.sidePanelClasses);
+            this.state.sidePanelClasses.push('pointerEventsActive')
+            console.log('this.state.sidePanelClasses makeInactive: ' + this.state.sidePanelClasses);
+            //this.state.textFieldClasses.splice(-1, 1)
+            //console.log('this.state.textFieldClasses.slice: ' + JSON.stringify(this.state.textFieldClasses))
+            //this.state.textFieldClasses.push(classes.pointerEventsActive)
+        } 
+        else if (this.props.hideSidePanel && this.state.sidePanelClasses !== ['sidePanel', 'pointerEventsInactive']) {
+            //this.setState({sidePanelClasses : ['sidePanel', 'sidePanelActive']})
+            this.state.sidePanelClasses.splice(-1, 1)
+            console.log('this.state.sidePanelClasses makeActive: ' + this.state.sidePanelClasses);
+            this.state.sidePanelClasses.push('pointerEventsInactive')
+            console.log('this.state.sidePanelClasses makeActive: ' + this.state.sidePanelClasses);
+            //this.state.textFieldClasses.splice(-1, 1)
+            //this.state.textFieldClasses.push(classes.pointerEventsInactive)
+        }
+        //console.log('this.state.textFieldClasses: ' + JSON.stringify(this.state.textFieldClasses))
+    }
+    // shouldComponentUpdate(nextProps, nextState){
+    //     console.log('nextProps.hideSidePanel: ' + nextProps.hideSidePanel)
+    //     if (this.refs.sideNav){
+    //         console.log('ReactDOM.findDOMNode(this.refs.sideNav).style: ' +  ReactDOM.findDOMNode(this.refs.sideNav).style);
+    //     }
+    //     nextProps.hideSidePanel === true ? console.log('hidden') : console.log('shown')  
+    // }
     render() {
         const { classes } = this.props;
-        console.log('classes: ' + JSON.stringify(classes));
+        //console.log('classes: ' + JSON.stringify(classes));
         //let{dataFromMap} = 
         return (
         <MuiThemeProvider muiTheme={getMuiTheme(darkBaseTheme)}>
             {/* <IconButton class='sideNavButton'><NavigationClose /></IconButton> */}
-            <div>
+            <div >
                 {/* <Fade in={this.state.hideSidePanel} timeout={1000}>
                     <div className='sideNavButton'>
                         <FloatingActionButton onClick={this.toggleVis} >
@@ -134,8 +203,8 @@ class SidePanel extends Component {
                     </div>
                 </Fade> */}
                 <Fade in={!this.props.hideSidePanel} timeout={1000}>
-                    <Paper className="sideNav"  >
-                        <AppBar className={classes.appBar} title="Add Project" iconElementLeft={(
+                    <Paper className={this.state.sidePanelClasses.join(' ')} >
+                        <AppBar className={classes.appBar} title={this.state.titleBarTitle} iconElementLeft={(
                             <IconButton color="inherit" aria-label="Menu" 
                                 aria-owns={this.state.anchorEl ? 'simple-menu' : undefined}
                                 aria-haspopup="true" 
@@ -150,11 +219,10 @@ class SidePanel extends Component {
                         </AppBar>
                         {this.state.editAction==='add' ? (
                             <FormControl margin='normal'>
-                            <FormLabel/>
                                 <TextField
                                     id="tf_project"
                                     label="Project"
-                                    className={classes.textField}
+                                    className={classes.TextField}
                                     value={this.state.project}
                                     onChange={this.handleChange('project')}
                                     margin="normal"
@@ -163,30 +231,53 @@ class SidePanel extends Component {
                                 <TextField
                                     id="tf_phase"
                                     label="Phase"
-                                    className={classes.textField}
+                                    className={classes.TextField}
                                     value={this.state.phase}
                                     onChange={this.handleChange('phase')}
                                     margin="normal"
                                     variant="outlined"
                                 />
-                                <Fade in={this.state.showAddButton} timeout={1000}>
                                     <Fab variant="extended" 
+                                        disabled={this.state.disableAddButton}
                                         color="primary" 
                                         aria-label="Add" 
                                         className={classes.addButton}
-                                        onClick={this.addSelectedProperties}>
+                                        onClick={this.props.addSelectedProperties}>
+                                    
                                         <NavigationIcon className={classes.extendedIcon} />
                                         <b>Add Selection</b>
                                     </Fab>
-                                </Fade>
                             </FormControl>
                         ) : (
                             <FormControl margin='normal'>
-                                
-                                    <Fab variant="extended" color="primary" aria-label="Add" className={classes.deleteButton}>
-                                        <DeleteIcon className={classes.extendedIcon} />
-                                        <b>Delete Selection</b>
-                                    </Fab>
+                                <TextField
+                                    id="tf_project_delete"
+                                    label="Project"
+                                    className={classes.textField}
+                                    value={this.state.project_delete}
+                                    onChange={this.handleChange('project_delete')}
+                                    margin="normal"
+                                    variant="outlined"
+                                />
+                                <TextField
+                                    id="tf_phase_delete"
+                                    label="Phase"
+                                    className={classes.textField}
+                                    value={this.state.phase_delete}
+                                    onChange={this.handleChange('phase_delete')}
+                                    margin="normal"
+                                    variant="outlined"
+                                />
+                                <Fab variant="extended" 
+                                    disabled={this.state.disableDeleteButton}
+                                    color="primary" 
+                                    aria-label="Delete" 
+                                    className={classes.deleteButton}
+                                    onClick={this.props.deleteSelectedProperties}
+                                >
+                                    <DeleteIcon className={classes.extendedIcon} />
+                                    <b>Delete Project</b>
+                                </Fab>
                             </FormControl>
                         )}                
                         

@@ -16,7 +16,7 @@ class MapSearch extends Component {
   //     console.log('MapSearchDidMount')
   // }
   componentDidUpdate() {
-      console.log('MapSearchDidUpdate')
+    //console.log('MapSearchDidUpdate')
     const self = this
     loadModules(['esri/widgets/Search', 'esri/layers/GraphicsLayer', 'esri/Graphic', 'esri/symbols/PictureMarkerSymbol', 'esri/geometry/support/webMercatorUtils', 'esri/tasks/Locator']).then(([Search, GraphicsLayer, Graphic, PictureMarkerSymbol, webMercatorUtils, Locator]) => {
       

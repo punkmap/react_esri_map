@@ -27,3 +27,9 @@
     top: 9px;
     left: 9px;
 }
+.esri-popup {
+    z-index:1000 !important;
+}
+.esri-popup__content{
+    margin: 0
+}
